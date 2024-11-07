@@ -23,7 +23,7 @@ go build -ldflags="-X 'main.Tag=v0.0.0'" cmd/main.go
 ./main.exe
 ```
 
-## Release
+## Release (Windows)
 
 ```console
 $outdir="bin"
@@ -34,4 +34,18 @@ $env:GOOS="darwin"; $env:GOARCH="amd64"; go build -o "$outdir/${name}_darwin_x86
 $env:GOOS="darwin"; $env:GOARCH="arm64"; go build -o "$outdir/${name}_darwin_arm64" -ldflags $LDFLAGS cmd/main.go
 $env:GOOS="windows"; $env:GOARCH="amd64"; go build -o "$outdir/${name}_windows_x86_64.exe" -ldflags $LDFLAGS cmd/main.go
 $env:GOOS="linux"; $env:GOARCH="amd64"; go build -o "$outdir/${name}_linux_x86_64" -ldflags $LDFLAGS cmd/main.go
+```
+
+## Release (Unix)
+
+
+```console
+outdir="bin"
+name="goup"
+rm -rf $outdir && mkdir -p $outdir
+LDFLAGS="-X 'main.Version=$(git describe --tags --abbrev=0)'"
+GOOS="darwin" GOARCH="amd64" go build -o "$outdir/${name}_darwin_x86_64" -ldflags "$LDFLAGS" cmd/main.go
+GOOS="darwin" GOARCH="arm64" go build -o "$outdir/${name}_darwin_arm64" -ldflags "$LDFLAGS" cmd/main.go
+GOOS="windows" GOARCH="amd64" go build -o "$outdir/${name}_windows_x86_64.exe" -ldflags "$LDFLAGS" cmd/main.go
+GOOS="linux" GOARCH="amd64" go build -o "$outdir/${name}_linux_x86_64" -ldflags "$LDFLAGS" cmd/main.go
 ```
