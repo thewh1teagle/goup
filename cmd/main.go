@@ -18,6 +18,7 @@ func main() {
 		User:       "thewh1teagle",
 		Repo:       "goup",
 		CurrentTag: Tag,
+		// Expansions: $arch / $ext / $version
 		Patterns: updater.PlatformAssets{
 			Windows: "goup_windows_$arch$ext", // x86_64
 			Linux:   "goup_linux_$arch",       // x86_64
