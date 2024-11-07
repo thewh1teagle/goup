@@ -173,8 +173,7 @@ func (g *GitHubUpdater) DownloadAndInstall(update *Update) error {
 		if err := os.Rename(currentPath, oldPath); err != nil {
 			return fmt.Errorf("failed to rename current file: %w", err)
 		}
-		// TODO: clean it
-		// defer os.Remove(oldPath)
+		defer os.Remove(oldPath)
 	}
 
 	// Replace the current file with the downloaded update
