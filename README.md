@@ -2,6 +2,11 @@
 
 Add self update capability for go program
 
+## Features
+
+-   Update the binary from Github releases
+-   Simple interface (2 functions)
+-   Support macOS / Linux / Windows
 
 ## Build
 
