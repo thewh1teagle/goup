@@ -7,8 +7,8 @@ import (
 	"github.com/thewh1teagle/goup/updater"
 )
 
-// go run -ldflags="-X 'main.Tag=v0.0.0'" main.go
-// go build -ldflags="-X 'main.Tag=v0.0.0'" main.go
+// go run -ldflags="-X 'main.Tag=v0.0.0'" cmd/main.go
+// go build -ldflags="-X 'main.Tag=v0.0.0'" cmd/main.go
 var Tag string
 
 func main() {
