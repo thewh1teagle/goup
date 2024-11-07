@@ -170,6 +170,7 @@ func (g *GitHubUpdater) DownloadAndInstall(update *Update) error {
 	if runtime.GOOS == "windows" {
 		// Move the current file to a temporary location
 		oldPath := filepath.Join(os.TempDir(), "old_"+filepath.Base(currentPath))
+		log.Printf("Move current executable to %s", oldPath)
 		if err := os.Rename(currentPath, oldPath); err != nil {
 			return fmt.Errorf("failed to rename current file: %w", err)
 		}

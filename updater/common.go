@@ -27,8 +27,9 @@ func (p PlatformBinaries) GetPlatformBinary() (string, error) {
 
 // expandPattern replaces %arch in the pattern with the actual architecture name.
 func expandPattern(pattern string) string {
-	arch := getArchName()
-	return strings.ReplaceAll(pattern, "%arch", arch)
+	pattern = strings.ReplaceAll(pattern, "$arch", getArchName())
+	pattern = strings.ReplaceAll(pattern, "$ext", getExt())
+	return pattern
 }
 
 func GetCurrentFilePath() (string, error) {
@@ -55,5 +56,14 @@ func getArchName() string {
 		return "aarch64"
 	default:
 		return runtime.GOARCH
+	}
+}
+
+func getExt() string {
+	switch runtime.GOOS {
+	case "windows":
+		return ".exe"
+	default:
+		return ""
 	}
 }

@@ -14,9 +14,9 @@ func main() {
 	log.SetFlags(log.LstdFlags | log.Lshortfile)
 
 	patterns := updater.PlatformBinaries{
-		Windows: "goup_windows_%arch", // x86_64
-		Linux:   "goup_linux_%arch",   // x86_64
-		MacOS:   "goup_darwin_%arch",  // x86_64, aarch64
+		Windows: "goup_windows_$arch$ext", // x86_64
+		Linux:   "goup_linux_$arch",       // x86_64
+		MacOS:   "goup_darwin_$arch",      // x86_64, aarch64
 	}
 	updater, err := updater.NewGitHubUpdater("thewh1teagle", "goup", Tag, patterns)
 	if err != nil {
