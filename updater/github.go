@@ -13,19 +13,28 @@ import (
 	"time"
 )
 
+type PlatformAssets struct {
+	Windows string
+	Linux   string
+	MacOS   string
+}
+
 type GitHubUpdater struct {
-	Username        string
+	User            string
 	Repo            string
 	CurrentTag      string
-	Patterns        PlatformBinaries
+	Patterns        PlatformAssets
 	DownloadTimeout time.Duration
 	CheckTimeout    time.Duration
 }
 
-type PlatformBinaries struct {
-	Windows string
-	Linux   string
-	MacOS   string
+type GitHubUpdaterOptions struct {
+	User            string
+	Repo            string
+	CurrentTag      string
+	Patterns        PlatformAssets
+	DownloadTimeout time.Duration
+	CheckTimeout    time.Duration
 }
 
 func (u *Update) Download(path string, progressCallback *ProgressCallback, timeout time.Duration) error {
@@ -72,31 +81,13 @@ func (u *Update) Download(path string, progressCallback *ProgressCallback, timeo
 	return nil
 }
 
-type ProgressWriter struct {
-	Writer           io.Writer
-	ProgressCallback ProgressCallback
-	TotalSize        int64
-	CurrentSize      int64
-}
-
-func (pw *ProgressWriter) Write(p []byte) (n int, err error) {
-	n, err = pw.Writer.Write(p)
-	if err == nil {
-		pw.CurrentSize += int64(n)
-		if pw.ProgressCallback != nil {
-			pw.ProgressCallback(pw.CurrentSize, pw.TotalSize)
-		}
-	}
-	return n, err
-}
-
 func (g *GitHubUpdater) CheckForUpdate() (*Update, error) {
 	filename, err := g.Patterns.GetPlatformBinary()
 	if err != nil {
 		return nil, err
 	}
 
-	latestTag, err := getLatestTag(g.Username, g.Repo, g.CheckTimeout)
+	latestTag, err := getLatestTag(g.User, g.Repo, g.CheckTimeout)
 	if err != nil {
 		return nil, err
 	}
@@ -108,7 +99,7 @@ func (g *GitHubUpdater) CheckForUpdate() (*Update, error) {
 	log.Printf("latest tag %s current %s", latestTag, g.CurrentTag)
 
 	// Construct the URL for the latest binary
-	url := fmt.Sprintf("https://github.com/%s/%s/releases/download/%s/%s", g.Username, g.Repo, latestTag, filename)
+	url := fmt.Sprintf("https://github.com/%s/%s/releases/download/%s/%s", g.User, g.Repo, latestTag, filename)
 
 	// Make a HEAD request to check if the file exists without downloading it
 	client := http.Client{Timeout: g.CheckTimeout}
@@ -145,15 +136,6 @@ func getLatestTag(username string, repository string, timeout time.Duration) (st
 		return "", fmt.Errorf("failed to retrieve tag from URL")
 	}
 	return tag, nil
-}
-
-type GitHubUpdaterOptions struct {
-	Username        string
-	Repo            string
-	CurrentTag      string
-	Patterns        PlatformBinaries
-	DownloadTimeout time.Duration
-	CheckTimeout    time.Duration
 }
 
 func (g *GitHubUpdater) DownloadAndInstall(update *Update, progressCallback ProgressCallback) error {
@@ -197,18 +179,5 @@ func (g *GitHubUpdater) DownloadAndInstall(update *Update, progressCallback Prog
 		}
 	}
 	log.Println("Update installed successfully")
-	return nil
-}
-
-func copyFile(src string, dst string) error {
-	// Read all content of src to data, may cause OOM for a large file.
-	data, err := os.ReadFile(src)
-	if err != nil {
-		return err
-	}
-	// Write data to dst
-	if err := os.WriteFile(dst, data, 0644); err != nil {
-		return err
-	}
 	return nil
 }

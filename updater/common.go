@@ -10,7 +10,7 @@ import (
 
 // GetPlatformBinary returns the filename pattern based on the current OS,
 // with architecture placeholders expanded.
-func (p PlatformBinaries) GetPlatformBinary() (string, error) {
+func (p PlatformAssets) GetPlatformBinary() (string, error) {
 	var pattern string
 	switch runtime.GOOS {
 	case "windows":
@@ -66,4 +66,17 @@ func getExt() string {
 	default:
 		return ""
 	}
+}
+
+func copyFile(src string, dst string) error {
+	// Read all content of src to data, may cause OOM for a large file.
+	data, err := os.ReadFile(src)
+	if err != nil {
+		return err
+	}
+	// Write data to dst
+	if err := os.WriteFile(dst, data, 0644); err != nil {
+		return err
+	}
+	return nil
 }

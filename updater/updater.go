@@ -1,14 +1,14 @@
 package updater
 
-import "fmt"
+import (
+	"fmt"
+)
 
 type Update struct {
 	URL      string
 	Filename string
 	Version  string
 }
-
-type ProgressCallback func(current int64, total int64)
 
 type Updater interface {
 	CheckForUpdate() (*Update, error)
