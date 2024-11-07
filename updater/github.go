@@ -13,15 +13,13 @@ import (
 	"time"
 )
 
-var client = &http.Client{
-	Timeout: 2 * time.Second, // Set global timeout to 0.5 seconds
-}
-
 type GitHubUpdater struct {
-	Username   string
-	Repo       string
-	CurrentTag string
-	Patterns   PlatformBinaries
+	Username        string
+	Repo            string
+	CurrentTag      string
+	Patterns        PlatformBinaries
+	DownloadTimeout time.Duration
+	CheckTimeout    time.Duration
 }
 
 type PlatformBinaries struct {
@@ -36,8 +34,11 @@ type Update struct {
 	Version  string
 }
 
-func (u *Update) Download(path string) error {
+type ProgressCallback func(current int64, total int64)
+
+func (u *Update) Download(path string, progressCallback *ProgressCallback, timeout time.Duration) error {
 	// Get the file
+	client := http.Client{Timeout: timeout}
 	resp, err := client.Get(u.URL)
 	if err != nil {
 		return fmt.Errorf("failed to download update: %w", err)
@@ -47,32 +48,54 @@ func (u *Update) Download(path string) error {
 		return fmt.Errorf("failed to download update: received status code %d", resp.StatusCode)
 	}
 
+	totalSize := resp.ContentLength
+
 	// Write the file
 	outFile, err := os.Create(path)
 	if err != nil {
 		return fmt.Errorf("failed to create file: %w", err)
 	}
 	defer outFile.Close()
-	_, err = io.Copy(outFile, resp.Body)
+
+	var writer io.Writer
+	if progressCallback != nil {
+		progressWriter := &ProgressWriter{
+			Writer:           outFile,
+			ProgressCallback: *progressCallback,
+			TotalSize:        totalSize,
+		}
+		_, err = io.Copy(progressWriter, resp.Body)
+		if err != nil {
+			return fmt.Errorf("failed to save update: %w", err)
+		}
+		writer = progressWriter
+	} else {
+		writer = outFile
+	}
+
+	_, err = io.Copy(writer, resp.Body)
 	if err != nil {
 		return fmt.Errorf("failed to save update: %w", err)
 	}
 	return nil
 }
 
-func GetUpdate(username string, repository string, currentTag string, binaries *PlatformBinaries) (*Update, error) {
-	filename, error := binaries.GetPlatformBinary()
-	if error != nil {
-		return nil, error
-	}
-	tag, _ := getLatestTag(username, repository)
+type ProgressWriter struct {
+	Writer           io.Writer
+	ProgressCallback ProgressCallback
+	TotalSize        int64
+	CurrentSize      int64
+}
 
-	currentFilePath, error := GetCurrentFilePath()
-	if error != nil {
-		return nil, error
+func (pw *ProgressWriter) Write(p []byte) (n int, err error) {
+	n, err = pw.Writer.Write(p)
+	if err == nil {
+		pw.CurrentSize += int64(n)
+		if pw.ProgressCallback != nil {
+			pw.ProgressCallback(pw.CurrentSize, pw.TotalSize)
+		}
 	}
-	log.Println(tag, filename, currentFilePath)
-	return nil, nil
+	return n, err
 }
 
 func (g *GitHubUpdater) CheckForUpdate() (*Update, error) {
@@ -81,7 +104,7 @@ func (g *GitHubUpdater) CheckForUpdate() (*Update, error) {
 		return nil, err
 	}
 
-	latestTag, err := getLatestTag(g.Username, g.Repo)
+	latestTag, err := getLatestTag(g.Username, g.Repo, g.CheckTimeout)
 	if err != nil {
 		return nil, err
 	}
@@ -96,6 +119,7 @@ func (g *GitHubUpdater) CheckForUpdate() (*Update, error) {
 	url := fmt.Sprintf("https://github.com/%s/%s/releases/download/%s/%s", g.Username, g.Repo, latestTag, filename)
 
 	// Make a HEAD request to check if the file exists without downloading it
+	client := http.Client{Timeout: g.CheckTimeout}
 	resp, err := client.Head(url)
 	if err != nil {
 		return nil, err
@@ -106,15 +130,15 @@ func (g *GitHubUpdater) CheckForUpdate() (*Update, error) {
 	if resp.StatusCode != http.StatusOK {
 		return nil, fmt.Errorf("update binary not found at %s", url)
 	}
-
-	return NewUpdate(url, filename, latestTag), nil
+	return &Update{URL: url, Filename: filename, Version: latestTag}, nil
 }
 
-func getLatestTag(username string, repository string) (string, error) {
+func getLatestTag(username string, repository string, timeout time.Duration) (string, error) {
 	// Construct the URL for the latest release
 	url := fmt.Sprintf("https://github.com/%s/%s/releases/latest", username, repository)
 
 	// Perform the HTTP GET request
+	client := http.Client{Timeout: timeout}
 	resp, err := client.Get(url)
 	if err != nil {
 		return "", fmt.Errorf("failed to get latest tag: %w", err)
@@ -131,21 +155,33 @@ func getLatestTag(username string, repository string) (string, error) {
 	return tag, nil
 }
 
-func NewGitHubUpdater(username string, repo string, currentTag string, patterns PlatformBinaries) (*GitHubUpdater, error) {
+type GitHubUpdaterOptions struct {
+	Username        string
+	Repo            string
+	CurrentTag      string
+	Patterns        PlatformBinaries
+	DownloadTimeout time.Duration
+	CheckTimeout    time.Duration
+}
+
+func NewGitHubUpdater(options GitHubUpdaterOptions) (*GitHubUpdater, error) {
 	// Ensure currentTag is not empty
-	if currentTag == "" {
+	if options.CurrentTag == "" {
 		return nil, fmt.Errorf("currentTag cannot be empty")
 	}
 
-	return &GitHubUpdater{
-		Username:   username,
-		Repo:       repo,
-		CurrentTag: currentTag,
-		Patterns:   patterns,
-	}, nil
+	updater := GitHubUpdater{
+		Username:        options.Username,
+		Repo:            options.Repo,
+		CurrentTag:      options.CurrentTag,
+		Patterns:        options.Patterns,
+		DownloadTimeout: options.DownloadTimeout,
+		CheckTimeout:    options.CheckTimeout,
+	}
+	return &updater, nil
 }
 
-func (g *GitHubUpdater) DownloadAndInstall(update *Update) error {
+func (g *GitHubUpdater) DownloadAndInstall(update *Update, progressCallback ProgressCallback) error {
 	currentPath, err := GetCurrentFilePath()
 	if err != nil {
 		return fmt.Errorf("failed to get current file path: %w", err)
@@ -158,7 +194,7 @@ func (g *GitHubUpdater) DownloadAndInstall(update *Update) error {
 	if err := os.MkdirAll(tempDir, 0755); err != nil {
 		return err
 	}
-	if err := update.Download(tempPath); err != nil {
+	if err := update.Download(tempPath, &progressCallback, g.DownloadTimeout); err != nil {
 		return fmt.Errorf("failed to download update: %w", err)
 	}
 
