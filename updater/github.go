@@ -205,6 +205,13 @@ func (g *GitHubUpdater) DownloadAndInstall(update *Update, progressCallback Prog
 		return fmt.Errorf("downloaded update file not found at %s", tempPath)
 	}
 
+	if runtime.GOOS == "linux" {
+		log.Printf("set permission to 0755 %s", tempPath)
+		if err := setExecutablePermission(tempPath); err != nil {
+			return fmt.Errorf("failed to set executable permission: %w", err)
+		}
+	}
+
 	// Handle file replacement differently on Windows
 	if runtime.GOOS == "windows" {
 		// Attempt to move the current file to a temporary location
@@ -239,6 +246,7 @@ func (g *GitHubUpdater) DownloadAndInstall(update *Update, progressCallback Prog
 			return fmt.Errorf("failed to replace current file with copy: %w", err)
 		}
 	}
+
 	log.Println("Update installed successfully")
 	return nil
 }

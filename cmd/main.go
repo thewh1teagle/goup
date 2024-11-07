@@ -9,7 +9,7 @@ import (
 // go run -ldflags="-X 'main.Tag=v0.0.0'" cmd/main.go
 // go build -ldflags="-X 'main.Tag=v0.0.0'" cmd
 
-var Tag string
+var Version string
 
 func main() {
 	log.SetFlags(log.LstdFlags | log.Lshortfile)
@@ -27,7 +27,7 @@ func createUpdater() (*updater.GitHubUpdater, error) {
 	options := updater.GitHubUpdaterOptions{
 		User:       "thewh1teagle",
 		Repo:       "goup",
-		CurrentTag: Tag,
+		CurrentTag: Version,
 		Patterns: updater.PlatformAssets{
 			Windows: "goup_windows_$arch$ext",
 			Linux:   "goup_linux_$arch",

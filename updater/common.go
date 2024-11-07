@@ -64,3 +64,7 @@ func copyFile(src string, dst string) error {
 	}
 	return nil
 }
+
+func setExecutablePermission(path string) error {
+	return os.Chmod(path, 0755)
+}
