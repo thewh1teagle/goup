@@ -28,14 +28,6 @@ type PlatformBinaries struct {
 	MacOS   string
 }
 
-type Update struct {
-	URL      string
-	Filename string
-	Version  string
-}
-
-type ProgressCallback func(current int64, total int64)
-
 func (u *Update) Download(path string, progressCallback *ProgressCallback, timeout time.Duration) error {
 	// Get the file
 	client := http.Client{Timeout: timeout}
@@ -162,23 +154,6 @@ type GitHubUpdaterOptions struct {
 	Patterns        PlatformBinaries
 	DownloadTimeout time.Duration
 	CheckTimeout    time.Duration
-}
-
-func NewGitHubUpdater(options GitHubUpdaterOptions) (*GitHubUpdater, error) {
-	// Ensure currentTag is not empty
-	if options.CurrentTag == "" {
-		return nil, fmt.Errorf("currentTag cannot be empty")
-	}
-
-	updater := GitHubUpdater{
-		Username:        options.Username,
-		Repo:            options.Repo,
-		CurrentTag:      options.CurrentTag,
-		Patterns:        options.Patterns,
-		DownloadTimeout: options.DownloadTimeout,
-		CheckTimeout:    options.CheckTimeout,
-	}
-	return &updater, nil
 }
 
 func (g *GitHubUpdater) DownloadAndInstall(update *Update, progressCallback ProgressCallback) error {

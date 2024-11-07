@@ -30,13 +30,13 @@ func main() {
 	if err != nil {
 		log.Fatal(err)
 	}
-	update, err := updater.CheckForUpdate()
+	newUpdate, err := updater.CheckForUpdate()
 	if err != nil {
 		log.Fatal(err)
 	}
-	if update != nil {
-		log.Printf("Installing update: %s", update.URL)
-		err := updater.DownloadAndInstall(update, func(part int64, total int64) {
+	if newUpdate != nil {
+		log.Printf("Installing update: %s", newUpdate.URL)
+		err := updater.DownloadAndInstall(newUpdate, func(part int64, total int64) {
 			log.Printf("Downloaded %d of %d bytes (%.2f%%)\n", part, total, float64(part)*100/float64(total))
 		})
 		if err != nil {
