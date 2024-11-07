@@ -10,7 +10,12 @@ import (
 	"path/filepath"
 	"runtime"
 	"strings"
+	"time"
 )
+
+var client = &http.Client{
+	Timeout: 2 * time.Second, // Set global timeout to 0.5 seconds
+}
 
 type GitHubUpdater struct {
 	Username   string
@@ -31,9 +36,9 @@ type Update struct {
 	Version  string
 }
 
-func (u *Update) Download(destinationDir string) error {
+func (u *Update) Download(path string) error {
 	// Get the file
-	resp, err := http.Get(u.URL)
+	resp, err := client.Get(u.URL)
 	if err != nil {
 		return fmt.Errorf("failed to download update: %w", err)
 	}
@@ -43,8 +48,7 @@ func (u *Update) Download(destinationDir string) error {
 	}
 
 	// Write the file
-	destinationPath := filepath.Join(destinationDir, u.Filename)
-	outFile, err := os.Create(destinationPath)
+	outFile, err := os.Create(path)
 	if err != nil {
 		return fmt.Errorf("failed to create file: %w", err)
 	}
@@ -86,12 +90,13 @@ func (g *GitHubUpdater) CheckForUpdate() (*Update, error) {
 	if latestTag == g.CurrentTag {
 		return nil, nil // No update available
 	}
+	log.Printf("latest tag %s current %s", latestTag, g.CurrentTag)
 
 	// Construct the URL for the latest binary
 	url := fmt.Sprintf("https://github.com/%s/%s/releases/download/%s/%s", g.Username, g.Repo, latestTag, filename)
 
 	// Make a HEAD request to check if the file exists without downloading it
-	resp, err := http.Head(url)
+	resp, err := client.Head(url)
 	if err != nil {
 		return nil, err
 	}
@@ -110,7 +115,7 @@ func getLatestTag(username string, repository string) (string, error) {
 	url := fmt.Sprintf("https://github.com/%s/%s/releases/latest", username, repository)
 
 	// Perform the HTTP GET request
-	resp, err := http.Get(url)
+	resp, err := client.Get(url)
 	if err != nil {
 		return "", fmt.Errorf("failed to get latest tag: %w", err)
 	}
@@ -123,20 +128,20 @@ func getLatestTag(username string, repository string) (string, error) {
 	if tag == "" || strings.HasSuffix(tag, "latest") {
 		return "", fmt.Errorf("failed to retrieve tag from URL")
 	}
-
 	return tag, nil
 }
 
-func NewGitHubUpdater(username, repo, currentTag string, patterns PlatformBinaries) (*GitHubUpdater, error) {
+func NewGitHubUpdater(username string, repo string, currentTag string, patterns PlatformBinaries) (*GitHubUpdater, error) {
 	// Ensure currentTag is not empty
 	if currentTag == "" {
 		return nil, fmt.Errorf("currentTag cannot be empty")
 	}
 
 	return &GitHubUpdater{
-		Username: username,
-		Repo:     repo,
-		Patterns: patterns,
+		Username:   username,
+		Repo:       repo,
+		CurrentTag: currentTag,
+		Patterns:   patterns,
 	}, nil
 }
 
@@ -147,9 +152,18 @@ func (g *GitHubUpdater) DownloadAndInstall(update *Update) error {
 	}
 
 	// Download the update to a temporary location
-	tempPath := filepath.Join(os.TempDir(), update.Filename)
-	if err := update.Download(os.TempDir()); err != nil {
+	tempDir := os.TempDir()
+	tempPath := filepath.Join(tempDir, update.Filename)
+	defer os.Remove(tempPath)
+	if err := os.MkdirAll(tempDir, 0755); err != nil {
+		return err
+	}
+	if err := update.Download(tempPath); err != nil {
 		return fmt.Errorf("failed to download update: %w", err)
+	}
+
+	if _, err := os.Stat(tempPath); os.IsNotExist(err) {
+		return fmt.Errorf("downloaded update file not found at %s", tempPath)
 	}
 
 	// Handle file replacement differently on Windows
@@ -164,10 +178,26 @@ func (g *GitHubUpdater) DownloadAndInstall(update *Update) error {
 	}
 
 	// Replace the current file with the downloaded update
+	log.Printf("Renaming %s to %s", tempPath, currentPath)
 	if err := os.Rename(tempPath, currentPath); err != nil {
-		return fmt.Errorf("failed to replace current file: %w", err)
+		log.Printf("Rename failed: %v. Attempting to copy file instead.", err)
+		if err := copyFile(tempPath, currentPath); err != nil {
+			return fmt.Errorf("failed to replace current file with copy: %w", err)
+		}
 	}
+	log.Println("Update installed successfully")
+	return nil
+}
 
-	log.Println("Update installed successfully. Restarting application...")
+func copyFile(src string, dst string) error {
+	// Read all content of src to data, may cause OOM for a large file.
+	data, err := os.ReadFile(src)
+	if err != nil {
+		return err
+	}
+	// Write data to dst
+	if err := os.WriteFile(dst, data, 0644); err != nil {
+		return err
+	}
 	return nil
 }

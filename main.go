@@ -6,11 +6,13 @@ import (
 	"github.com/thewh1teagle/goup/updater"
 )
 
-// go run -ldflags="-X 'main.Tag=v0.1.0'" main.go
-// go build -ldflags="-X 'main.Tag=v0.1.0'" main.go
+// go run -ldflags="-X 'main.Tag=v0.0.0'" main.go
+// go build -ldflags="-X 'main.Tag=v0.0.0'" main.go
 var Tag string
 
 func main() {
+	log.SetFlags(log.LstdFlags | log.Lshortfile)
+
 	patterns := updater.PlatformBinaries{
 		Windows: "goup_windows_%arch", // x86_64
 		Linux:   "goup_linux_%arch",   // x86_64
@@ -24,7 +26,13 @@ func main() {
 	if err != nil {
 		log.Println(err)
 	}
-	log.Println(update)
-	// updater.DownloadAndInstall(update)
+	if update != nil {
+		log.Printf("Installing update: %s", update.URL)
+		if err := updater.DownloadAndInstall(update); err != nil {
+			log.Fatal(err)
+		}
+	} else {
+		log.Println("No update available")
+	}
 
 }
