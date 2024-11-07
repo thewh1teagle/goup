@@ -16,6 +16,7 @@ type Updater interface {
 }
 
 func NewGitHubUpdater(options GitHubUpdaterOptions) (*GitHubUpdater, error) {
+	initCleanup()
 	// Ensure currentTag is not empty
 	if options.CurrentTag == "" {
 		return nil, fmt.Errorf("currentTag cannot be empty")

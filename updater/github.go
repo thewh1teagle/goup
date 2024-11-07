@@ -37,6 +37,16 @@ type GitHubUpdaterOptions struct {
 	CheckTimeout    time.Duration
 }
 
+func initCleanup() error {
+	if execPath, err := os.Executable(); err == nil {
+		tmpDir := filepath.Join(filepath.Dir(execPath), ".tmp")
+		if _, err := os.Stat(tmpDir); err == nil {
+			return os.RemoveAll(tmpDir)
+		}
+	}
+	return nil
+}
+
 func (u *Update) Download(path string, progressCallback *ProgressCallback, timeout time.Duration) error {
 	// Get the file
 	client := http.Client{Timeout: timeout}
@@ -161,11 +171,26 @@ func (g *GitHubUpdater) DownloadAndInstall(update *Update, progressCallback Prog
 
 	// Handle file replacement differently on Windows
 	if runtime.GOOS == "windows" {
-		// Move the current file to a temporary location
+		// Attempt to move the current file to a temporary location
 		oldPath := filepath.Join(os.TempDir(), "old_"+filepath.Base(currentPath))
-		log.Printf("Move current executable to %s", oldPath)
+		log.Printf("Attempting to move current executable to %s", oldPath)
 		if err := os.Rename(currentPath, oldPath); err != nil {
-			return fmt.Errorf("failed to rename current file: %w", err)
+			log.Printf("Failed to move to temp location, attempting fallback to .tmp directory within current path")
+
+			// Fallback: Get the directory of the current executable
+			currentDir := filepath.Dir(currentPath)
+			// Define the .tmp directory within the current executable's directory
+			tmpDir := filepath.Join(currentDir, ".tmp")
+
+			// Ensure the .tmp directory exists
+			if err := os.MkdirAll(tmpDir, os.ModePerm); err != nil {
+				return fmt.Errorf("failed to create .tmp directory: %w", err)
+			}
+			// Set the fallback path to move the current executable to the .tmp directory
+			oldPath = filepath.Join(tmpDir, filepath.Base(currentPath))
+			if err := os.Rename(currentPath, oldPath); err != nil {
+				return fmt.Errorf("failed to rename current file to .tmp directory: %w", err)
+			}
 		}
 		defer os.Remove(oldPath)
 	}
