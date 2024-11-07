@@ -8,7 +8,7 @@ import (
 	"strings"
 )
 
-// expandPattern replaces %arch in the pattern with the actual architecture name.
+// expandPattern replaces $arch, $ext, $version in the pattern with the actual architecture name.
 func expandPattern(pattern string, currentVersion string) string {
 	pattern = strings.ReplaceAll(pattern, "$arch", getArchName())
 	pattern = strings.ReplaceAll(pattern, "$ext", getExt())
