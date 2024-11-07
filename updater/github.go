@@ -47,6 +47,23 @@ func initCleanup() error {
 	return nil
 }
 
+// GetPlatformBinary returns the filename pattern based on the current OS,
+// with architecture placeholders expanded.
+func (p PlatformAssets) GetPlatformBinary(currentVersion string) (string, error) {
+	var pattern string
+	switch runtime.GOOS {
+	case "windows":
+		pattern = p.Windows
+	case "linux":
+		pattern = p.Linux
+	case "darwin":
+		pattern = p.MacOS
+	default:
+		return "", fmt.Errorf("unsupported platform: %s", runtime.GOOS)
+	}
+	return expandPattern(pattern, currentVersion), nil
+}
+
 func (u *Update) Download(path string, progressCallback *ProgressCallback, timeout time.Duration) error {
 	// Get the file
 	client := http.Client{Timeout: timeout}
@@ -92,7 +109,7 @@ func (u *Update) Download(path string, progressCallback *ProgressCallback, timeo
 }
 
 func (g *GitHubUpdater) CheckForUpdate() (*Update, error) {
-	filename, err := g.Patterns.GetPlatformBinary()
+	filename, err := g.Patterns.GetPlatformBinary(g.CurrentTag)
 	if err != nil {
 		return nil, err
 	}

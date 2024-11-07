@@ -8,27 +8,11 @@ import (
 	"strings"
 )
 
-// GetPlatformBinary returns the filename pattern based on the current OS,
-// with architecture placeholders expanded.
-func (p PlatformAssets) GetPlatformBinary() (string, error) {
-	var pattern string
-	switch runtime.GOOS {
-	case "windows":
-		pattern = p.Windows
-	case "linux":
-		pattern = p.Linux
-	case "darwin":
-		pattern = p.MacOS
-	default:
-		return "", fmt.Errorf("unsupported platform: %s", runtime.GOOS)
-	}
-	return expandPattern(pattern), nil
-}
-
 // expandPattern replaces %arch in the pattern with the actual architecture name.
-func expandPattern(pattern string) string {
+func expandPattern(pattern string, currentVersion string) string {
 	pattern = strings.ReplaceAll(pattern, "$arch", getArchName())
 	pattern = strings.ReplaceAll(pattern, "$ext", getExt())
+	pattern = strings.ReplaceAll(pattern, "$version", currentVersion)
 	return pattern
 }
 
