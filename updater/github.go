@@ -37,6 +37,25 @@ type GitHubUpdaterOptions struct {
 	CheckTimeout    time.Duration
 }
 
+func NewGitHubUpdater(options GitHubUpdaterOptions) (*GitHubUpdater, error) {
+	initCleanup()
+	// Ensure currentTag is not empty
+	if options.CurrentTag == "" {
+		return nil, fmt.Errorf("currentTag cannot be empty")
+	}
+
+	// Defaults
+	if options.DownloadTimeout == 0 {
+		options.DownloadTimeout = DefaultDownloadTimeout
+	}
+	if options.CheckTimeout == 0 {
+		options.CheckTimeout = DefaultCheckTimeout
+	}
+
+	updater := GitHubUpdater(options)
+	return &updater, nil
+}
+
 func initCleanup() error {
 	if execPath, err := os.Executable(); err == nil {
 		tmpDir := filepath.Join(filepath.Dir(execPath), ".tmp")
